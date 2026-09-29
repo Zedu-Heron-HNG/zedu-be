@@ -401,7 +401,7 @@ func TestToggleUserJoinedMessage(t *testing.T) {
 			_ = db.Postgresql.Where("email = ?", user2SignUp.Email).Delete(&models.User{}).Error
 		}()
 
-		joinReq, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/channels/%s/join", channelID), nil)
+		joinReq, _ := http.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/channels/%s/join", channelID), strings.NewReader("{}"))
 		joinReq.Header.Set("Content-Type", "application/json")
 		joinReq.Header.Set("Authorization", "Bearer "+token2)
 
