@@ -118,6 +118,7 @@ func ResolveChannelPushTargetUserIDs(db *gorm.DB, feed models.FeedMessageRequest
 	for _, m := range feed.Mentions {
 		if m.ID == "00000000-0000-0000-0000-000000000000" {
 			isChannelMention = true
+			break
 		} else if m.Type == "user" && m.ID != "" && m.ID != senderId {
 			taggedUserMap[m.ID] = true
 		}
@@ -159,13 +160,17 @@ func ChannelNotification(db *gorm.DB, notifPayload models.NotificationProcessPay
 		userIDs   []string
 	)
 
-	err := db.
-		Model(&models.UserChannels{}).
-		Where("channels_id = ? AND user_id != ?", channelId, userId).
-		Pluck("user_id", &userIDs).Error
+	if len(notifPayload.UserIds) > 0 {
+		userIDs = notifPayload.UserIds
+	} else {
+		err := db.
+			Model(&models.UserChannels{}).
+			Where("channels_id = ? AND user_id != ?", channelId, userId).
+			Pluck("user_id", &userIDs).Error
 
-	if err != nil {
-		return fmt.Errorf("failed to query entry of userids")
+		if err != nil {
+			return fmt.Errorf("failed to query entry of userids")
+		}
 	}
 
 	filteredUserIDs, err := notificationpref.FilterUsersByPreferences(db, userIDs, channelId, orgId, notificationpref.NotificationTypeAllMessages)

@@ -143,6 +143,22 @@ func SaveThreadMessage(req models.CreateThreadMsgReq, db *storage.Database, logg
 	dataByte, _ := json.Marshal(feed)
 
 	if req.Type != "system" {
+		isChannelMention := false
+		var mentionedUserIDs []string
+		senderID := req.UserId
+		seenUsers := make(map[string]bool)
+
+		for _, m := range req.Mentions {
+			if m.ID == "00000000-0000-0000-0000-000000000000" {
+				isChannelMention = true
+				mentionedUserIDs = nil
+				break
+			} else if m.Type == "user" && m.ID != "" && m.ID != senderID && !seenUsers[m.ID] {
+				seenUsers[m.ID] = true
+				mentionedUserIDs = append(mentionedUserIDs, m.ID)
+			}
+		}
+
 		notifRec := models.PushNotificationRecord{
 			ChannelType: models.Channel,
 			Data:        string(dataByte),
@@ -152,8 +168,11 @@ func SaveThreadMessage(req models.CreateThreadMsgReq, db *storage.Database, logg
 			Type:        models.NewMessage,
 		}
 
-		err = actions.AddPushNotificationToQueue(storage.DB.Redis, notifRec)
+		if !isChannelMention && len(mentionedUserIDs) > 0 {
+			notifRec.UserIds = mentionedUserIDs
+		}
 
+		err = actions.AddPushNotificationToQueue(storage.DB.Redis, notifRec)
 		if err != nil {
 			logger.Error("Error adding notification to channelid: %s, with orgid: %s error: %v", req.ChannelsID, req.OrgId, err.Error())
 		}

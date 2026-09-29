@@ -61,4 +61,32 @@ func TestResolveChannelPushTargetUserIDs(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, []string{"user-3"}, targets)
 	})
+
+	t.Run("Duplicate User Mentions are Deduplicated", func(t *testing.T) {
+		feed := models.FeedMessageRequest{
+			Content: `<p>@user-2 @user-2 please check</p>`,
+			Mentions: []models.Mention{
+				{ID: "user-2", Type: "user"},
+				{ID: "user-2", Type: "user"},
+			},
+		}
+
+		targets, err := notification_processor.ResolveChannelPushTargetUserIDs(nil, feed, channelUsers, "chan-1", "org-1", "sender-1")
+		require.NoError(t, err)
+		assert.Equal(t, []string{"user-2"}, targets)
+	})
+
+	t.Run("@channel Mention Takes Priority Over Individual User Mentions", func(t *testing.T) {
+		feed := models.FeedMessageRequest{
+			Content: `<p>@channel @user-2</p>`,
+			Mentions: []models.Mention{
+				{ID: "00000000-0000-0000-0000-000000000000", Type: "user"},
+				{ID: "user-2", Type: "user"},
+			},
+		}
+
+		targets, err := notification_processor.ResolveChannelPushTargetUserIDs(nil, feed, channelUsers, "chan-1", "org-1", "sender-1")
+		require.NoError(t, err)
+		assert.Len(t, targets, len(channelUsers))
+	})
 }
