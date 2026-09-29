@@ -230,6 +230,16 @@ func TestDmChannelVisibilityFlow(t *testing.T) {
 		}
 		require.NoError(t, db.Postgresql.Create(&dmChanRecent).Error)
 
+		thread := models.ThreadDocument{
+			ID:         utility.GenerateUUID(),
+			ChannelsID: dmChannelID2,
+			Content:    "Hello recent message",
+			Type:       "message",
+			UserId:     user1.ID,
+			CreatedAt:  recentTime,
+		}
+		require.NoError(t, thread.CreateThread(db, logger))
+
 		req := httptest.NewRequest("GET", "/api/v1/organisations/"+org.ID+"/dms/visible", nil)
 		req.Header.Set("Authorization", "Bearer "+token1)
 		w := httptest.NewRecorder()
