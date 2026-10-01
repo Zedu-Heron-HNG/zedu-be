@@ -3,10 +3,15 @@ name: Build Golang Binary and Run Tests
 on:
   pull_request:
     branches:
-      - staging
+      - dev
+      - central-staging
   push:
     branches:
       - testing
+
+concurrency:
+  group: build-tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build_and_test:
