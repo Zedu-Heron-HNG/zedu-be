@@ -36,7 +36,7 @@ jobs:
 
       - name: Start dependency services
         run: |
-          docker compose -f docker-compose.dev.yml up -d postgres redis minio
+          docker compose -f docker-compose.dev.yml up -d postgres redis minio centrifugo
           docker run -d --name elasticsearch-ci -p 9200:9200 \
             -e discovery.type=single-node \
             -e xpack.security.enabled=false \
@@ -56,6 +56,9 @@ jobs:
           done
           for i in $(seq 1 60); do
             curl -s -o /dev/null http://localhost:9000/minio/health/live && break || sleep 2
+          done
+          for i in $(seq 1 60); do
+            curl -s -o /dev/null http://localhost:8000/health && break || sleep 2
           done
 
       - name: Install PostgreSQL client
@@ -88,6 +91,12 @@ jobs:
           sed -i "s|^BUCKET_NAME=.*|BUCKET_NAME=dev-bucket|" app.env
           sed -i "s|^BUCKET_ACCESS_KEY=.*|BUCKET_ACCESS_KEY=minio_access_key|" app.env
           sed -i "s|^BUKCET_SECRET_KEY=.*|BUKCET_SECRET_KEY=minio_secret_key|" app.env
+          sed -i "s|^CENTRIFUGE_URL=.*|CENTRIFUGE_URL=http://localhost:8000|" app.env
+          sed -i "s|^CENTRIFUGE_API_KEY=.*|CENTRIFUGE_API_KEY=generic_centrifuge_api_key|" app.env
+          sed -i "s|^HMAC_SECRET=.*|HMAC_SECRET=DoHardThingsGenericSecret|" app.env
+          sed -i "s|^AGORA_APP_ID=.*|AGORA_APP_ID=0123456789abcdef0123456789abcdef|" app.env
+          sed -i "s|^AGORA_APP_CERTIFICATE=.*|AGORA_APP_CERTIFICATE=0123456789abcdef0123456789abcdef|" app.env
+          sed -i "s|^STRIPE_KEY=.*|STRIPE_KEY=|" app.env
           echo "DB_URL=postgresql://postgres:password@localhost:5432/${TEST_DB_NAME}?sslmode=disable" >> app.env
 
       - name: Create test database
