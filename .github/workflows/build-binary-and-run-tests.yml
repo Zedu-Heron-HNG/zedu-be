@@ -9,6 +9,9 @@ on:
     branches:
       - testing
 
+permissions:
+  contents: read
+
 concurrency:
   group: build-tests-${{ github.ref }}
   cancel-in-progress: true
@@ -45,21 +48,25 @@ jobs:
 
       - name: Wait for dependencies
         run: |
-          for i in $(seq 1 60); do
-            docker compose -f docker-compose.dev.yml exec -T postgres pg_isready -U postgres && break || sleep 2
-          done
-          for i in $(seq 1 60); do
-            docker compose -f docker-compose.dev.yml exec -T redis redis-cli ping && break || sleep 2
-          done
-          for i in $(seq 1 60); do
-            curl -s -o /dev/null http://localhost:9200 && break || sleep 3
-          done
-          for i in $(seq 1 60); do
-            curl -s -o /dev/null http://localhost:9000/minio/health/live && break || sleep 2
-          done
-          for i in $(seq 1 60); do
-            curl -s -o /dev/null http://localhost:8000/health && break || sleep 2
-          done
+          wait_for() {
+            local name="$1" attempts="$2" interval="$3"
+            shift 3
+            for i in $(seq 1 "${attempts}"); do
+              if "$@"; then
+                echo "${name} is ready"
+                return 0
+              fi
+              sleep "${interval}"
+            done
+            echo "::error::${name} did not become ready"
+            return 1
+          }
+
+          wait_for postgres 60 2 docker compose -f docker-compose.dev.yml exec -T postgres pg_isready -U postgres
+          wait_for redis 60 2 docker compose -f docker-compose.dev.yml exec -T redis redis-cli ping
+          wait_for elasticsearch 60 3 curl -sf --max-time 5 -o /dev/null http://localhost:9200
+          wait_for minio 60 2 curl -sf --max-time 5 -o /dev/null http://localhost:9000/minio/health/live
+          wait_for centrifugo 60 2 curl -sf --max-time 5 -o /dev/null http://localhost:8000/health
 
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
